@@ -1,0 +1,6 @@
+Mandy: Hey, quick question about the TPS report - do you know if we need Q3 metrics or just Q4 projections?
+Rachel: Honestly not sure... we should probably ask Sarah since she's the project manager
+Mandy: Good point. I'll check with her about the requirements
+Rachel: Yeah, better to double-check than mess it up. Sarah will know exactly what format they want
+Mandy: True. I'll ping her now and see what she says about dividing up the sections too
+Rachel: Smart move. Let me know what she says!
