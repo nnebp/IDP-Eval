@@ -14,25 +14,25 @@ Setup:
 
 import requests
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 def query_model_with_context(
-    model: str,
+    models: List[str],
     prompt: str,
     conversation_files: List[str],
     api_key: Optional[str] = None,
     max_tokens: int = 1000,
     temperature: float = 0.7
-) -> str:
+) -> Dict[str, str]:
     """
-    Query a Together AI model with conversation files as context
+    Query multiple Together AI models with conversation files as context
     
     Args:
-        model: The model to use (e.g., "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+        models: List of models to use (e.g., ["meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "deepseek-ai/DeepSeek-R1"])
         prompt: The question/prompt to ask
         conversation_files: List of file paths to include as context
         api_key: Together AI API key (or use TOGETHER_API_KEY env var)
@@ -40,7 +40,7 @@ def query_model_with_context(
         temperature: Response creativity (0.0-1.0)
     
     Returns:
-        The model's response as a string
+        Dictionary with model names as keys and their responses as values
     """
     
     # Get API key
@@ -64,37 +64,51 @@ def query_model_with_context(
     context = "\n\n".join(context_content)
     full_prompt = f"Context:\n{context}\n\nQuestion: {prompt}" if context else prompt
     
-    # Make API request
+    # Query each model and collect results
+    results = {}
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": full_prompt}],
-        "max_tokens": max_tokens,
-        "temperature": temperature
-    }
+    for model in models:
+        print(f"Querying model: {model}...")
+        
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": full_prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        try:
+            response = requests.post(
+                "https://api.together.xyz/v1/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                results[model] = response.json()["choices"][0]["message"]["content"]
+            else:
+                results[model] = f"API Error {response.status_code}: {response.text}"
+                print(f"Warning: Error querying {model}: {results[model]}")
+        except Exception as e:
+            results[model] = f"Exception: {str(e)}"
+            print(f"Warning: Exception querying {model}: {e}")
     
-    response = requests.post(
-        "https://api.together.xyz/v1/chat/completions",
-        headers=headers,
-        json=payload
-    )
-    
-    if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
-    else:
-        raise Exception(f"API Error {response.status_code}: {response.text}")
+    return results
 
 
 # Example usage
 if __name__ == "__main__":
-    # Example: Query with conversation files
-    #model = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
-    model = "deepseek-ai/DeepSeek-R1"
-    #model = "moonshotai/Kimi-K2-Instruct-0905"
+    # Example: Query with conversation files using multiple models
+    models = [
+        "deepseek-ai/DeepSeek-R1",
+        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+        "moonshotai/Kimi-K2-Instruct-0905"
+    ]
+    
     #prompt = "What are the main topics discussed in these conversations?"
     #prompt = "I have included some slack conversations between my employees. I have 3 employees, Rachael and Mandy and Sarah. I want to schedule them to do 3 seperate task. one is to move boxes, one is to do data entry and one is to unload pallets. Who should do what and why?"
     #prompt = "why is my project manager underperforming?"
@@ -103,11 +117,17 @@ if __name__ == "__main__":
     #files = ["conversations/TPS_symptoms/1.txt", "conversations/TPS_symptoms/2.txt", "conversations/TPS_symptoms/3.txt"]  # Add your conversation files here
     
     try:
-        result = query_model_with_context(model, prompt, files)
-        print(f"Model: {model}")
+        results = query_model_with_context(models, prompt, files)
+        print(f"Models: {', '.join(models)}")
         print(f"Files: {', '.join(files)}")
         print(f"Prompt: {prompt}")
-        print(f"Response:\n{result}")
+        print("\n" + "="*80)
+        
+        for model, response in results.items():
+            print(f"\n=== {model} ===")
+            print(response)
+            print("\n" + "-"*80)
+            
     except Exception as e:
         print(f"Error: {e}")
         print("\nMake sure to:")
